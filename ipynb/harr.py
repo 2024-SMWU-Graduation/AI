@@ -18,7 +18,7 @@ class ResNet18Model(nn.Module):
 
 # 모델 경로와 클래스 이름
 MODEL_PATH = "/Users/mks/Documents/GitHub/AI/model/ResNet18_best.pth"
-CLASS_NAMES = ["Neutral", "Positive", "Negative"]
+CLASS_NAMES = ["Negative", "Neutral", "Positive"]
 
 # GPU 설정
 device = torch.device("mps" if torch.backends.mps.is_built() else "cpu")
