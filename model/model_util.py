@@ -24,7 +24,7 @@ def load_model(model_path, model_class):
     :return: 로드된 PyTorch 모델
     """
     model = model_class(num_classes=len(CLASS_NAMES))
-    state_dict = torch.load(model_path, map_location=device)
+    state_dict = torch.load(model_path, map_location=device, weights_only=True)
     model.load_state_dict(state_dict)
     model.to(device)
     model.eval()

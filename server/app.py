@@ -2,7 +2,7 @@ import os
 from flask import Flask, request, render_template
 from werkzeug.utils import secure_filename
 
-from ipynb.model import ResNet18Model  # 모델 클래스 임포트 (ipynb 디렉토리에서 가져옴)
+from ipynb.model import ResNet18Model  # 모델 클래스 임포트
 from model.model_util import load_model, analyze_video  # 모델 관련 함수 임포트
 
 # Flask 설정 및 초기화
