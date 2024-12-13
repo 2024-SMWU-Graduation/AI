@@ -69,13 +69,14 @@ def analyze_video(video_path, model):
 
     :param video_path: 비디오 파일 경로
     :param model: PyTorch 모델
-    :return: 분석 결과 문자열 (Negative 비율)
+    :return: 분석 결과 문자열 (Negative 비율 및 구간)
     """
     cap = cv2.VideoCapture(video_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
     frame_interval = int(fps * 0.5)
 
     predictions = []
+    negative_intervals = []
 
     frame_count = 0
     while True:
@@ -89,6 +90,9 @@ def analyze_video(video_path, model):
                 face = frame[y:y + h, x:x + w]
                 label = predict_face(face, model)
                 predictions.append(label)
+                if label == "Negative":
+                    time_in_seconds = frame_count / fps
+                    negative_intervals.append(time_in_seconds)
 
         frame_count += 1
 
@@ -97,4 +101,18 @@ def analyze_video(video_path, model):
     summary = Counter(predictions)
     negative_ratio = (summary["Negative"] / sum(summary.values())) * 100 if predictions else 0
 
-    return f"Negative 비율: {negative_ratio:.2f}%"
+    # Calculate continuous intervals
+    continuous_intervals = []
+    if negative_intervals:
+        start = negative_intervals[0]
+        for i in range(1, len(negative_intervals)):
+            if negative_intervals[i] - negative_intervals[i-1] > 0.5:
+                end = negative_intervals[i-1]
+                continuous_intervals.append((start, end))
+                start = negative_intervals[i]
+        continuous_intervals.append((start, negative_intervals[-1]))
+
+    # Format intervals as '00:00 - 00:00'
+    formatted_intervals = [f"{int(start//60):02}:{int(start%60):02} - {int(end//60):02}:{int(end%60):02}" for start, end in continuous_intervals]
+
+    return f"Negative 비율: {negative_ratio:.2f}%", formatted_intervals
