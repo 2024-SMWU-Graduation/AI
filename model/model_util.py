@@ -62,7 +62,6 @@ def predict_face(face, model):
 
     return CLASS_NAMES[predicted.item()]
 
-
 def analyze_video(video_path, model):
     """
     비디오를 분석하고 결과를 반환합니다.
@@ -108,9 +107,13 @@ def analyze_video(video_path, model):
         for i in range(1, len(negative_intervals)):
             if negative_intervals[i] - negative_intervals[i-1] > 0.5:
                 end = negative_intervals[i-1]
-                continuous_intervals.append((start, end))
+                # Only add the interval if the start and end are different
+                if start != end:
+                    continuous_intervals.append((start, end))
                 start = negative_intervals[i]
-        continuous_intervals.append((start, negative_intervals[-1]))
+        # Append the last interval if start and end are different
+        if start != negative_intervals[-1]:
+            continuous_intervals.append((start, negative_intervals[-1]))
 
     # Format intervals as '00:00 - 00:00'
     formatted_intervals = [f"{int(start//60):02}:{int(start%60):02} - {int(end//60):02}:{int(end%60):02}" for start, end in continuous_intervals]

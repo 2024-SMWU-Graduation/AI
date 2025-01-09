@@ -63,4 +63,4 @@ def health_check():
     return jsonify({'status': 'OK'}), 200
 
 if __name__ == '__main__':
-    app.run(debug=True, port=8080)  # 개발 환경에서 디버그 모드 활성화
+    app.run(debug=True, port=8081)  # 개발 환경에서 디버그 모드 활성화
