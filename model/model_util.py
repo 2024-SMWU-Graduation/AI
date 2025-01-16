@@ -90,7 +90,7 @@ def analyze_video(video_path, model):
                 label = predict_face(face, model)
                 predictions.append(label)
                 if label == "Negative":
-                    time_in_seconds = frame_count / fps
+                    time_in_seconds = (frame_count / fps)
                     negative_intervals.append(time_in_seconds)
 
         frame_count += 1
@@ -100,19 +100,19 @@ def analyze_video(video_path, model):
     summary = Counter(predictions)
     negative_ratio = (summary["Negative"] / sum(summary.values())) * 100 if predictions else 0
 
-    # Calculate continuous intervals
+    # 연속적인 구간 계산
     continuous_intervals = []
     if negative_intervals:
         start = negative_intervals[0]
         for i in range(1, len(negative_intervals)):
             if negative_intervals[i] - negative_intervals[i-1] > 0.5:
                 end = negative_intervals[i-1]
-                # Only add the interval if the start and end are different
-                if start != end:
+                # 시작시간과 종료시간이 다를 떄만
+                if start < end:
                     continuous_intervals.append((start, end))
                 start = negative_intervals[i]
         # Append the last interval if start and end are different
-        if start != negative_intervals[-1]:
+        if start < negative_intervals[-1]:
             continuous_intervals.append((start, negative_intervals[-1]))
 
     # Format intervals as '00:00 - 00:00'
