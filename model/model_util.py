@@ -100,22 +100,30 @@ def analyze_video(video_path, model):
     summary = Counter(predictions)
     negative_ratio = (summary["Negative"] / sum(summary.values())) * 100 if predictions else 0
 
-    # 연속적인 구간 계산
-    continuous_intervals = []
+    # 연속적인 구간 계산 및 포맷팅
+    formatted_intervals = []
     if negative_intervals:
         start = negative_intervals[0]
         for i in range(1, len(negative_intervals)):
             if negative_intervals[i] - negative_intervals[i-1] > 0.5:
                 end = negative_intervals[i-1]
-                # 시작시간과 종료시간이 다를 떄만
-                if start < end:
-                    continuous_intervals.append((start, end))
+                duration = end - start
+                if duration >= 1.0:  # 1초 이상인 경우
+                    # 범위 포맷 추가 (00:00 포함 가능)
+                    formatted_intervals.append(
+                        f"{int(start//60):02}:{int(start%60):02} - {int(end//60):02}:{int(end%60):02}"
+                    )
+                elif start > 0:  # 단일 시간 포맷에서 00:00 제외
+                    formatted_intervals.append(f"{int(start//60):02}:{int(start%60):02}")
                 start = negative_intervals[i]
-        # Append the last interval if start and end are different
-        if start < negative_intervals[-1]:
-            continuous_intervals.append((start, negative_intervals[-1]))
-
-    # Format intervals as '00:00 - 00:00'
-    formatted_intervals = [f"{int(start//60):02}:{int(start%60):02} - {int(end//60):02}:{int(end%60):02}" for start, end in continuous_intervals]
+        # 마지막 구간 처리
+        end = negative_intervals[-1]
+        duration = end - start
+        if duration >= 1.0:
+            formatted_intervals.append(
+                f"{int(start//60):02}:{int(start%60):02} - {int(end//60):02}:{int(end%60):02}"
+            )
+        elif start > 0:  # 단일 시간 포맷에서 00:00 제외
+            formatted_intervals.append(f"{int(start//60):02}:{int(start%60):02}")
 
     return f"Negative 비율: {negative_ratio:.2f}%", formatted_intervals
