@@ -5,3 +5,9 @@
 
 archive
 archive/
+
+.idea
+
+**/__pycache__
+server/uploads
+server/templates
