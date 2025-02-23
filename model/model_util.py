@@ -24,7 +24,7 @@ def load_model(model_path, model_class):
     :return: 로드된 PyTorch 모델
     """
     model = model_class(num_classes=len(CLASS_NAMES))
-    state_dict = torch.load(model_path, map_location=device, weights_only=True)
+    state_dict = torch.load(model_path, map_location=device)
     model.load_state_dict(state_dict)
     model.to(device)
     model.eval()
@@ -46,11 +46,11 @@ def detect_faces(frame):
 
 def predict_face(face, model):
     """
-    얼굴 이미지를 입력으로 받아 예측 결과를 반환합니다.
+    얼굴 이미지를 입력으로 받아 예측 결과와 확률을 반환합니다.
 
     :param face: 얼굴 이미지 (OpenCV 이미지)
     :param model: PyTorch 모델
-    :return: 예측된 클래스 이름
+    :return: 예측된 클래스 이름과 확률 값
     """
     face_rgb = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
     face_pil = transforms.ToPILImage()(face_rgb)
@@ -58,17 +58,19 @@ def predict_face(face, model):
 
     with torch.no_grad():
         outputs = model(face_tensor)
+        probabilities = torch.softmax(outputs, dim=1)  # 소프트맥스 확률 계산
         _, predicted = torch.max(outputs, 1)
 
-    return CLASS_NAMES[predicted.item()]
+    return CLASS_NAMES[predicted.item()], probabilities[0][predicted.item()].item()
+
 
 def analyze_video(video_path, model):
     """
-    비디오를 분석하고 결과를 반환합니다.
+    비디오를 분석하고 부정적인 구간과 비율을 반환합니다.
 
     :param video_path: 비디오 파일 경로
     :param model: PyTorch 모델
-    :return: 분석 결과 문자열 (Negative 비율 및 구간)
+    :return: 분석 결과 딕셔너리 (부정 비율 및 구간)
     """
     cap = cv2.VideoCapture(video_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -87,43 +89,60 @@ def analyze_video(video_path, model):
             faces = detect_faces(frame)
             for (x, y, w, h) in faces:
                 face = frame[y:y + h, x:x + w]
-                label = predict_face(face, model)
-                predictions.append(label)
-                if label == "Negative":
-                    time_in_seconds = (frame_count / fps)
-                    negative_intervals.append(time_in_seconds)
+                try:
+                    label, probability = predict_face(face, model)  # 확률 값도 반환
+                    predictions.append(label)
+                    if label == "Negative":
+                        time_in_seconds = (frame_count / fps)
+                        negative_intervals.append((time_in_seconds, probability))
+                except Exception as e:
+                    print(f"Error during prediction: {e}")
+                    continue
 
         frame_count += 1
 
     cap.release()
 
-    summary = Counter(predictions)
-    negative_ratio = (summary["Negative"] / sum(summary.values())) * 100 if predictions else 0
+    # Negative 비율 계산 (시간 기반)
+    total_negative_time = sum(
+        t2[0] - t1[0] for t1, t2 in zip(negative_intervals[:-1], negative_intervals[1:])
+        if t2[0] - t1[0] <= 0.5
+    )
 
-    # 연속적인 구간 계산 및 포맷팅
-    formatted_intervals = []
+    total_video_time = frame_count / fps if fps > 0 else 1  # FPS가 0일 경우 기본값 설정
+    negative_ratio = (total_negative_time / total_video_time) * 100
+
+    # 연속 구간 병합 및 강도 추가
+    merged_intervals = []
+
     if negative_intervals:
-        start = negative_intervals[0]
-        for i in range(1, len(negative_intervals)):
-            if negative_intervals[i] - negative_intervals[i-1] > 0.5:
-                end = negative_intervals[i-1]
-                duration = end - start
-                if duration >= 1.0:  # 1초 이상인 경우
-                    # 범위 포맷 추가 (00:00 포함 가능)
-                    formatted_intervals.append(
-                        f"{int(start//60):02}:{int(start%60):02} - {int(end//60):02}:{int(end%60):02}"
-                    )
-                elif start > 0:  # 단일 시간 포맷에서 00:00 제외
-                    formatted_intervals.append(f"{int(start//60):02}:{int(start%60):02}")
-                start = negative_intervals[i]
-        # 마지막 구간 처리
-        end = negative_intervals[-1]
-        duration = end - start
-        if duration >= 1.0:
-            formatted_intervals.append(
-                f"{int(start//60):02}:{int(start%60):02} - {int(end//60):02}:{int(end%60):02}"
-            )
-        elif start > 0:  # 단일 시간 포맷에서 00:00 제외
-            formatted_intervals.append(f"{int(start//60):02}:{int(start%60):02}")
+        start, intensity_sum = negative_intervals[0][0], negative_intervals[0][1]
+        count = 1
 
-    return f"Negative 비율: {negative_ratio:.2f}%", formatted_intervals
+        for i in range(1, len(negative_intervals)):
+            current_time, current_intensity = negative_intervals[i]
+            prev_time = negative_intervals[i - 1][0]
+
+            if current_time - prev_time > 1.0:  # 간격이 1초 이상이면 새로운 구간 시작
+                avg_intensity = intensity_sum / count
+                intensity_label = "매우 부정적" if avg_intensity > 0.8 else "약간 부정적"
+                merged_intervals.append((start, prev_time, intensity_label))
+                start, intensity_sum, count = current_time, current_intensity, 1
+            else:
+                intensity_sum += current_intensity
+                count += 1
+
+        # 마지막 구간 추가
+        avg_intensity = intensity_sum / count
+        intensity_label = "매우 부정적" if avg_intensity > 0.8 else "약간 부정적"
+        merged_intervals.append((start, negative_intervals[-1][0], intensity_label))
+
+    return {
+        "negative_ratio": round(negative_ratio, 2),
+        "negative_summary": f"전체 영상 중 {round(negative_ratio, 2)}%가 부정적으로 분류되었습니다.",
+        "negative_intervals": [
+            {"start": f"{int(start // 60):02}:{int(start % 60):02}",
+             "end": f"{int(end // 60):02}:{int(end % 60):02}",
+             "intensity": intensity} for start, end, intensity in merged_intervals
+        ]
+    }
