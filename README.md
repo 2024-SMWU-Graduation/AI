@@ -9,6 +9,10 @@
 [![stackticon](https://firebasestorage.googleapis.com/v0/b/stackticon-81399.appspot.com/o/images%2F1742062870669?alt=media&token=90360d80-1489-4c38-b922-f219624e2209)](https://github.com/msdio/stackticon)
 ### Infra
 [![stackticon](https://firebasestorage.googleapis.com/v0/b/stackticon-81399.appspot.com/o/images%2F1742062839976?alt=media&token=88ed61be-693e-4eb6-a956-46129cff85d1)](https://github.com/msdio/stackticon)
+
+## AI 시스템 아키텍쳐
+<img width="1988" alt="Image" src="https://github.com/user-attachments/assets/1c229918-f5a2-4b69-b8a7-3d884238a3b9" />
+
 ## 표정 인식 모델 학습 과정
 1. Kaggle의 FERData를 이용한 ResNet9 모델 학습 (`ResNet9_epoch-100_score-0.8633.pth`)
 2. AI-Hub의 한국인 감정 인식을 위한 복합 영상 데이터를 이용한 ResNet18 모델 학습 (`ResNet18_final_best_updated.pth`)
